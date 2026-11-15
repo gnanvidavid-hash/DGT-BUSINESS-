@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Nexora Market</string>
+    <string name="tagline">Votre Marché Sans Limites</string>
+    <string name="sign_in_google">Continuer avec Google</string>
+    <string name="pay_with_fedapay">Payer avec FedaPay</string>
+    <string name="pay_on_delivery">Paiement à la livraison</string>
+    <string name="verifying_payment">Paiement en cours de vérification</string>
 </resources>

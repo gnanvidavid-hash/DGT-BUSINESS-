@@ -1,0 +1,233 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Fonctions utilitaires globales
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        ('email' in request.auth.token &&
+         'email_verified' in request.auth.token &&
+         request.auth.token.email == 'gnanvidavid@gmail.com' &&
+         request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && !id.matches('.*[/\\\\].*');
+    }
+
+    // ===============================================================
+    // Validateurs de schéma
+    // ===============================================================
+
+    function isValidUserProfile(data, uid) {
+      return data.keys().hasAll(['userId', 'fullName', 'email', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'fullName', 'email', 'role', 'createdAt', 'updatedAt'])
+        && data.userId == uid
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 150
+        && data.role in ['client', 'vendeur', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSellerProfile(data) {
+      return data.keys().hasAll([
+          'ownerId', 'businessName', 'sellerName', 'category',
+          'email', 'status', 'isVerified', 'balanceXof', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'businessName', 'sellerName', 'category',
+          'email', 'status', 'isVerified', 'balanceXof', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128
+        && data.businessName is string && data.businessName.size() >= 1 && data.businessName.size() <= 120
+        && data.sellerName is string && data.sellerName.size() >= 1 && data.sellerName.size() <= 100
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 80
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 150
+        && data.status in ['En attente', 'Approuvé', 'Suspendu']
+        && data.isVerified is bool
+        && data.balanceXof is int && data.balanceXof >= 0 && data.balanceXof <= 1000000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'userId', 'customerName', 'customerEmail', 'sellerName', 'itemsSummary',
+          'items', 'subtotalXof', 'discountXof', 'shippingFeeXof', 'totalAmountXof',
+          'platformCommissionXof', 'sellerShareXof', 'commissionRate',
+          'paymentMethod', 'status', 'shippingAddress', 'shippingMethod',
+          'trackingProgress', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'customerName', 'customerEmail', 'sellerName', 'itemsSummary',
+          'items', 'subtotalXof', 'discountXof', 'shippingFeeXof', 'totalAmountXof',
+          'platformCommissionXof', 'sellerShareXof', 'commissionRate',
+          'paymentMethod', 'status', 'shippingAddress', 'shippingMethod',
+          'trackingProgress', 'fedapayTransactionId', 'lastWebhookEventId',
+          'createdAt', 'updatedAt', 'paidAt'
+        ])
+        && data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128
+        && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 120
+        && data.customerEmail is string && data.customerEmail.size() >= 3 && data.customerEmail.size() <= 150
+        && data.sellerName is string && data.sellerName.size() >= 1 && data.sellerName.size() <= 120
+        && data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 2000
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 50
+        && data.subtotalXof is int && data.subtotalXof >= 0
+        && data.discountXof is int && data.discountXof >= 0
+        && data.shippingFeeXof is int && data.shippingFeeXof >= 0
+        && data.totalAmountXof is int && data.totalAmountXof > 0 && data.totalAmountXof <= 100000000
+        && data.platformCommissionXof is int && data.platformCommissionXof >= 0
+        && data.sellerShareXof is int && data.sellerShareXof >= 0
+        && (data.platformCommissionXof + data.sellerShareXof == data.totalAmountXof)
+        && data.commissionRate is number && data.commissionRate >= 0.0 && data.commissionRate <= 0.5
+        && data.paymentMethod in ['FedaPay', 'Paiement à la livraison']
+        && data.status in [
+          'En attente de paiement', 'En attente', 'Payée',
+          'Paiement échoué', 'Expédiée', 'Livrée', 'Annulée'
+        ]
+        && data.shippingAddress is string && data.shippingAddress.size() >= 1 && data.shippingAddress.size() <= 300
+        && data.shippingMethod is string && data.shippingMethod.size() >= 1 && data.shippingMethod.size() <= 100
+        && data.trackingProgress is number && data.trackingProgress >= 0.0 && data.trackingProgress <= 1.0
+        && (!('fedapayTransactionId' in data) || data.fedapayTransactionId == null || data.fedapayTransactionId is string)
+        && (!('lastWebhookEventId' in data) || data.lastWebhookEventId == null || data.lastWebhookEventId is string)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // ===============================================================
+    // Règles par collection
+    // ===============================================================
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(request.resource.data, userId)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.role in ['client', 'vendeur'] || (request.resource.data.role == 'admin' && isAdmin()));
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(request.resource.data, userId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && (
+          request.resource.data.role == resource.data.role ||
+          request.resource.data.role in ['client', 'vendeur'] ||
+          isAdmin()
+        );
+      allow delete: if false;
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list, write: if false;
+    }
+
+    match /sellers/{sellerId} {
+      allow get: if isValidId(sellerId) && isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(sellerId)
+        && isSignedIn()
+        && isValidSellerProfile(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            request.resource.data.ownerId == request.auth.uid &&
+            request.resource.data.status == 'En attente' &&
+            request.resource.data.isVerified == false &&
+            request.resource.data.balanceXof == 0
+          )
+        );
+      allow update: if isValidId(sellerId)
+        && isSignedIn()
+        && isValidSellerProfile(request.resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            resource.data.ownerId == request.auth.uid &&
+            request.resource.data.status == resource.data.status &&
+            request.resource.data.isVerified == resource.data.isVerified &&
+            request.resource.data.balanceXof == resource.data.balanceXof
+          )
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+
+      // CRITIQUE : Le client ne peut JAMAIS créer une commande déjà "Payée" ou "Paiement échoué"
+      allow create: if isValidId(orderId)
+        && isOwner(request.resource.data.userId)
+        && isValidOrder(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && !('fedapayTransactionId' in request.resource.data)
+        && !('lastWebhookEventId' in request.resource.data)
+        && (
+          (request.resource.data.paymentMethod == 'FedaPay' && request.resource.data.status == 'En attente de paiement') ||
+          (request.resource.data.paymentMethod == 'Paiement à la livraison' && request.resource.data.status == 'En attente')
+        );
+
+      // CRITIQUE : Seul le backend (Admin SDK via webhook FedaPay) peut passer une commande à "Payée" ou "Paiement échoué"
+      allow update: if isValidId(orderId)
+        && isSignedIn()
+        && isValidOrder(request.resource.data)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.totalAmountXof == resource.data.totalAmountXof
+        && request.resource.data.platformCommissionXof == resource.data.platformCommissionXof
+        && request.resource.data.sellerShareXof == resource.data.sellerShareXof
+        && request.resource.data.paymentMethod == resource.data.paymentMethod
+        && request.resource.data.get('fedapayTransactionId', null) == resource.data.get('fedapayTransactionId', null)
+        && request.resource.data.get('lastWebhookEventId', null) == resource.data.get('lastWebhookEventId', null)
+        && (
+          (
+            isAdmin() &&
+            request.resource.data.status in ['En attente', 'Expédiée', 'Livrée', 'Annulée']
+          ) ||
+          (
+            resource.data.userId == request.auth.uid &&
+            resource.data.status in ['En attente de paiement', 'En attente'] &&
+            request.resource.data.status == 'Annulée'
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // Collection interne réservée uniquement au webhook backend (Admin SDK)
+    match /processed_webhook_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    // Refus global par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

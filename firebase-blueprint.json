@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profil utilisateur authentifié avec rôle client, vendeur ou admin.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "vendeur", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fullName", "email", "role", "createdAt", "updatedAt"]
+    },
+    "SellerProfile": {
+      "title": "SellerProfile",
+      "description": "Boutique vendeur sur Nexora Market avec statut d'approbation admin.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "businessName": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "category": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string", "enum": ["En attente", "Approuvé", "Suspendu"] },
+        "isVerified": { "type": "boolean" },
+        "balanceXof": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "businessName", "sellerName", "category", "email", "status", "isVerified", "balanceXof", "createdAt", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Commande client en FCFA (XOF) avec calcul de commission et suivi temps réel FedaPay.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "itemsSummary": { "type": "string" },
+        "items": { "type": "array" },
+        "subtotalXof": { "type": "integer" },
+        "discountXof": { "type": "integer" },
+        "shippingFeeXof": { "type": "integer" },
+        "totalAmountXof": { "type": "integer" },
+        "platformCommissionXof": { "type": "integer" },
+        "sellerShareXof": { "type": "integer" },
+        "commissionRate": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["FedaPay", "Paiement à la livraison"] },
+        "status": {
+          "type": "string",
+          "enum": ["En attente de paiement", "En attente", "Payée", "Paiement échoué", "Expédiée", "Livrée", "Annulée"]
+        },
+        "shippingAddress": { "type": "string" },
+        "shippingMethod": { "type": "string" },
+        "trackingProgress": { "type": "number" },
+        "fedapayTransactionId": { "type": "string" },
+        "lastWebhookEventId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "customerName",
+        "customerEmail",
+        "sellerName",
+        "itemsSummary",
+        "items",
+        "subtotalXof",
+        "discountXof",
+        "shippingFeeXof",
+        "totalAmountXof",
+        "platformCommissionXof",
+        "sellerShareXof",
+        "commissionRate",
+        "paymentMethod",
+        "status",
+        "shippingAddress",
+        "shippingMethod",
+        "trackingProgress",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Profil utilisateur et rôle applicatif"
+    },
+    "/admins/{userId}": {
+      "schema": "UserProfile",
+      "description": "Registre administrateurs vérifiés (lecture seule côté client)"
+    },
+    "/sellers/{sellerId}": {
+      "schema": "SellerProfile",
+      "description": "Boutiques vendeurs gérées par le vendeur et approuvées/suspendues par l'admin"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Commandes en FCFA avec statut vérifié par webhook FedaPay"
+    }
+  }
+}

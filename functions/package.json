@@ -1,0 +1,14 @@
+{
+  "name": "nexora-market-functions",
+  "description": "Cloud Functions HTTPS pour le webhook FedaPay de Nexora Market",
+  "scripts": {
+    "test": "node --test webhook.test.js"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  }
+}
